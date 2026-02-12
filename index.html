@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <title>Vognlogg – PV 1–60 (Supabase-versjon)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { --blue:#0366d6; --ok:#0a7d26; --bad:#a40000; --muted:#666; --bg:#fff; --panel:#f9f9f9; --border:#ddd; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 16px; color: #222; background: var(--bg); }
+    header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    h1 { font-size: 1.4rem; margin: 0; }
+    .tag { font-size:.75rem; padding:4px 6px; border-radius:4px; background:#eef5ff; color:#003e89; border:1px solid #bcd4ff; }
+    .tabbar { display:flex; gap:8px; margin: 12px 0; flex-wrap: wrap; }
+    .tabbar a { border:1px solid var(--border); background:var(--panel); padding:8px 12px; border-radius:6px; color:#000; text-decoration:none; }
+    .tabbar a.active { background:#e9f2ff; border-color:#bcd4ff; color:#003e89; }
+    .panel { border:1px solid var(--border); border-radius:8px; padding:12px; background: var(--panel); margin-bottom: 16px; }
+    .form .row { display:flex; gap:12px; align-items:center; margin:8px 0; flex-wrap: wrap; }
+    .form label { width: 160px; font-weight: 600; }
+    .form input, .form select, .form textarea { padding: 6px 8px; min-width: 220px; }
+    .two-col { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+    button, .btn { background: var(--blue); color:#fff; border:0; padding:8px 12px; border-radius:6px; cursor:pointer; }
+    .btn-secondary { background:#666; }
+    .btn-danger { background:#b00000; }
+    .alert { padding:10px; border-radius:6px; margin:10px 0; }
+    .alert-error { background:#ffecec; border:1px solid #f5a9a9; }
+    .alert-ok { background:#eaffea; border:1px solid #9bd39b; }
+    .muted { color: var(--muted); font-size: .9em; }
+    table { border-collapse: collapse; width:100%; margin-top: 8px; }
+    th, td { border:1px solid var(--border); padding:8px; }
+    th { background:#f5f5f5; text-align:left; }
+    section.tab { display:none; }
+    section.tab:target { display:block; }
+    section#registrering.tab { display:block; }
+    @media (max-width: 860px){ .two-col { grid-template-columns: 1fr; } }
+    @media (max-width: 640px){ .form label { width: 120px; } }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Vognlogg</h1>
+  <div>
+    <span class="tag">Supabase</span>
+    <span class="muted">Nedtrekk kan søkes/skrives via datalist (type‑ahead), og ID settes automatisk.</span>
+  </div>
+</header>
+<div class="tabbar" id="tabbar">
+  <a href="#registrering" id="tab-registrering">Registrering</a>
+  <a href="#status" id="tab-status">Status</a>
+  <a href="#rapport" id="tab-rapport">Rapport</a>
+  <a href="#master" id="tab-master">Masterlister</a>
+  <a href="#backup" id="tab-backup">Import/Eksport</a>
+</div>
+<section id="registrering" class="panel tab">
+  <h2>Registrer hendelse</h2>
+  <div id="reg-alert"></div>
+  <form id="reg-form" class="form">
+    <div class="row">
+      <label>Person</label>
+      <input type="text" id="person_search" list="peopleList" placeholder="Søk/skriv navn eller nummer" autocomplete="off">
+      <datalist id="peopleList"></datalist>
+      <select id="person_id" style="display:none"></select>
+    </div>
+    <div class="row">
+      <label>Vogn</label>
+      <input type="text" id="cart_search" list="cartsList" placeholder="Søk/skriv vognkode (f.eks. PV 12)" autocomplete="off">
+      <datalist id="cartsList"></datalist>
+      <select id="cart_id" style="display:none"></select>
+    </div>
+    <div class="row"><label>Handling</label><select id="action" required><option value="">Velg handling</option><option value="OUT">Tar ut</option><option value="IN">Leverer inn</option></select></div>
+    <div class="two-col">
+      <div class="row"><label>Avdeling</label><input type="text" id="dept" placeholder="f.eks. Montering"></div>
+      <div class="row"><label>Celle</label><input type="text" id="project" placeholder="f.eks. Celle nr"></div>
+    </div>
+    <div class="two-col">
+      <div class="row"><label>Dato</label><input type="date" id="date" required></div>
+      <div class="row"><label>Klokkeslett</label><input type="time" id="time" required></div>
+    </div>
+    <div class="row"><label>Auto‑tid</label><label><input type="checkbox" id="autoNow"> Bruk nåtid automatisk</label></div>
+    <div class="row"><label>Bemerkning</label><input type="text" id="note" placeholder="Valgfritt"></div>
+    <div class="actions"><button type="submit">Registrer</button><button type="button" class="btn-secondary" id="fill-now">Fyll inn nåtid</button></div>
+    <p class="muted">Søk/skriv i feltene over: velg forslag fra lista, så settes riktig ID automatisk.</p>
+  </form>
+</section>
+<section id="status" class="panel tab">
+  <h2>Status – vogner</h2>
+  <div id="status-table"></div>
+</section>
+<section id="rapport" class="panel tab">
+  <h2>Rapport</h2>
+  <form id="filter-form" class="form">
+    <div class="two-col">
+      <div class="row"><label>Fra dato</label><input type="date" id="from"></div>
+      <div class="row"><label>Til dato</label><input type="date" id="to"></div>
+    </div>
+    <div class="two-col">
+      <div class="row"><label>Person</label><select id="filter-person"></select></div>
+      <div class="row"><label>Vogn</label><select id="filter-cart"></select></div>
+    </div>
+    <div class="two-col">
+      <div class="row"><label>Avdeling</label><input type="text" id="filter-dept" placeholder="f.eks. Montering"></div>
+      <div class="row"><label>Celle</label><input type="text" id="filter-project" placeholder="f.eks. Celle nr"></div>
+    </div>
+    <div class="actions"><button type="button" id="apply-filter">Filtrer</button><button type="button" id="export-csv">Eksporter CSV</button></div>
+  </form>
+  <div id="report-table"></div>
+</section>
+<section id="master" class="panel tab">
+  <h2>Masterlister</h2>
+  <div class="panel">
+    <h3>Personer</h3>
+    <form id="person-form" class="form">
+      <div class="row"><label>Nummer</label><input type="number" id="p-number" required></div>
+      <div class="row"><label>Navn</label><input type="text" id="p-name" required></div>
+      <div class="row"><label>Avdeling (valgfritt)</label><input type="text" id="p-dept"></div>
+      <div class="row"><label>Aktiv</label><select id="p-active"><option value="1">Ja</option><option value="0">Nei</option></select></div>
+      <div class="actions"><button type="submit">Legg til/oppdater</button></div>
+    </form>
+    <div id="people-table"></div>
+  </div>
+  <div class="panel">
+    <h3>Vogner</h3>
+    <form id="cart-form" class="form">
+      <div class="row"><label>VognID/Code</label><input type="text" id="c-code" placeholder="f.eks. PV 61" required></div>
+      <div class="row"><label>Type</label><input type="text" id="c-type" placeholder="Tralle, Kassevogn"></div>
+      <div class="row"><label>Kapasitet (kg)</label><input type="number" id="c-cap" min="0" step="50" placeholder="300"></div>
+      <div class="row"><label>Lager/område</label><input type="text" id="c-area" placeholder="Hall/område"></div>
+      <div class="row"><label>Beskrivelse</label><input type="text" id="c-desc" placeholder="Valgfritt"></div>
+      <div class="row"><label>Aktiv</label><select id="c-active"><option value="1">Ja</option><option value="0">Nei</option></select></div>
+      <div class="actions"><button type="submit">Legg til/oppdater</button></div>
+    </form>
+    <div id="carts-table"></div>
+  </div>
+</section>
+<section id="backup" class="panel tab">
+  <h2>Import / Eksport</h2>
+  <div class="actions">
+    <button id="export-json">Eksporter JSON</button>
+    <label class="btn">Importer JSON<input type="file" id="import-file" accept="application/json" style="display:none"></label>
+    <button class="btn-danger" id="reset-all">Nullstill alt</button>
+  </div>
+  <pre id="export-output" class="panel" style="white-space:pre-wrap"></pre>
+</section>
+<link rel="preload" href="app-search-supabase.js" as="script">
+<script type="module" src="app-search-supabase.js"></script>
+</body>
+</html>
